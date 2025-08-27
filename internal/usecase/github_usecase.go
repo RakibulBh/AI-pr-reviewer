@@ -3,6 +3,7 @@ package usecase
 import (
 	"github.com/RakibulBh/AI-pr-reviewer/internal/model"
 	"github.com/RakibulBh/AI-pr-reviewer/internal/repository"
+	"github.com/RakibulBh/AI-pr-reviewer/internal/utils"
 	"github.com/go-playground/webhooks/v6/github"
 )
 
@@ -24,24 +25,37 @@ func (g *GithubUsecase) PullRequestReviewer(pullRequest github.PullRequestPayloa
 	pullNumber := pullRequest.Number
 
 	// Fetch file changes with code for context
-	_, err := g.repository.ListPullRequestFiles(owner, repo, pullNumber)
+	files, err := g.repository.ListPullRequestFiles(owner, repo, pullNumber)
 	if err != nil {
 		return err
 	}
 
-	comment := model.ReviewCommentRequest{
-		Body:      "Great stuff!",
-		CommitID:  "6dcb09b5b57875f334f61aebed695e2e4193db5e",
-		Path:      "file1.txt",
-		StartLine: 1,
-		StartSide: "RIGHT",
-		Line:      2,
-		Side:      "RIGHT",
-	}
-
-	err = g.repository.CreateReviewComments(owner, repo, pullNumber, comment)
+	// Get the reviews for the PR
+	filesToJsonString, err := utils.StructToJSON(files)
 	if err != nil {
 		return err
+	}
+	reviews, err := g.gemini.GetCodeReviews(filesToJsonString)
+	if err != nil {
+		return err
+	}
+
+	// Create each revoew
+	for _, review := range reviews {
+		comment := model.ReviewCommentRequest{
+			Body:      review.Body,
+			CommitID:  review.CommitID,
+			Path:      review.Path,
+			StartLine: review.StartLine,
+			StartSide: review.StartSide,
+			Line:      review.Line,
+			Side:      review.Side,
+		}
+
+		err = g.repository.CreateReviewComments(owner, repo, pullNumber, comment)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
