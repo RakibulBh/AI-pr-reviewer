@@ -7,11 +7,13 @@ import (
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/usecase"
 	"github.com/go-playground/webhooks/v6/github"
+	"google.golang.org/genai"
 )
 
 type GithubController struct {
 	usecase *usecase.GithubUsecase
 	hook    *github.Webhook
+	client  *genai.Client
 }
 
 func NewGithubController(usecase *usecase.GithubUsecase, hook *github.Webhook) *GithubController {
@@ -41,9 +43,9 @@ func (c *GithubController) MainReciever(w http.ResponseWriter, r *http.Request) 
 	case github.PullRequestPayload:
 		pullRequest := payload.(github.PullRequestPayload)
 
-		err := c.usecase.PullRequestReviwer()
+		err := c.usecase.PullRequestReviewer(pullRequest)
 		if err != nil {
-			log.Printf("errir reviewing pull request: %v", err)
+			log.Printf("error reviewing pull request: %v", err)
 			return
 		}
 

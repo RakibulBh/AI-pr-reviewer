@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"log"
 
 	httpPackage "github.com/RakibulBh/AI-pr-reviewer/internal/delivery/http"
@@ -11,24 +12,28 @@ import (
 )
 
 type BootstrapConfig struct {
-	R           *chi.Mux
-	GithubToken string
+	R            *chi.Mux
+	GithubToken  string
+	GeminiApiKey string
 }
 
 func Bootstrap(appConfig *BootstrapConfig) {
-	// setup repositories
-	githubRepository := repository.NewGithubRepository(appConfig.GithubToken)
-
-	// setup producer
-
 	// configs
 	hook, err := NewGithubHook(appConfig.GithubToken)
 	if err != nil {
 		log.Fatalf("error creating new github webhook: %v\n", err)
 	}
+	client, err := NewGeminiClient(context.Background(), appConfig.GeminiApiKey)
+	if err != nil {
+		log.Fatalf("error creating gemini client: %v\n", err)
+	}
+
+	// setup repositories
+	githubRepository := repository.NewGithubRepository(appConfig.GithubToken)
+	geminiRepository := repository.NewGeminiRepository(client, context.Background())
 
 	// setup use cases
-	githubUsecase := usecase.NewGithubUsecase(githubRepository)
+	githubUsecase := usecase.NewGithubUsecase(githubRepository, geminiRepository)
 
 	// setup controller
 	githubController := httpPackage.NewGithubController(githubUsecase, hook)
