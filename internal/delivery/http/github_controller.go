@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/usecase"
@@ -39,7 +40,13 @@ func (c *GithubController) MainReciever(w http.ResponseWriter, r *http.Request) 
 
 	case github.PullRequestPayload:
 		pullRequest := payload.(github.PullRequestPayload)
-		// Do whatever you want from here...
+
+		err := c.usecase.PullRequestReviwer()
+		if err != nil {
+			log.Printf("errir reviewing pull request: %v", err)
+			return
+		}
+
 		fmt.Print(pullRequest.Sender)
 		fmt.Printf("%+v", pullRequest)
 	}

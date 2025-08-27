@@ -11,17 +11,18 @@ import (
 )
 
 type BootstrapConfig struct {
-	R *chi.Mux
+	R           *chi.Mux
+	GithubToken string
 }
 
 func Bootstrap(appConfig *BootstrapConfig) {
 	// setup repositories
-	githubRepository := repository.NewGithubRepository()
+	githubRepository := repository.NewGithubRepository(appConfig.GithubToken)
 
 	// setup producer
 
 	// configs
-	hook, err := NewGithubHook()
+	hook, err := NewGithubHook(appConfig.GithubToken)
 	if err != nil {
 		log.Fatalf("error creating new github webhook: %v\n", err)
 	}

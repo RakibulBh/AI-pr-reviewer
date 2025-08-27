@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -20,10 +19,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	config.Bootstrap(&config.BootstrapConfig{
-		R: r,
+		R:           r,
+		GithubToken: "NqDw9wTeyp",
 	})
-
-	fmt.Printf("test")
 
 	// start the server
 	log.Fatal(http.ListenAndServe(":3000", r))
