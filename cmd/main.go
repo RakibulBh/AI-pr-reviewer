@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -21,6 +22,8 @@ func main() {
 	config.Bootstrap(&config.BootstrapConfig{
 		R: r,
 	})
+
+	fmt.Printf("test")
 
 	// start the server
 	log.Fatal(http.ListenAndServe(":3000", r))
