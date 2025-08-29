@@ -1,8 +1,10 @@
 package main
 
 import (
+	"log"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/config"
 	"github.com/go-chi/chi/middleware"
@@ -34,17 +36,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	appIDStr := os.Getenv("APP_ID")
+	appID, err := strconv.Atoi(appIDStr)
+	if err != nil {
+		log.Fatalf("Invalid APP_ID: %v", err)
+	}
+
 	config.Bootstrap(&config.BootstrapConfig{
 		R:            r,
 		GeminiApiKey: os.Getenv("GEMINI_API_KEY"),
-		Port:         "8080",
+		Port:         os.Getenv("PORT"),
+		Env:          os.Getenv("ENV"),
 
 		// Github Repostored private key
 		GithubWebhookSecret: os.Getenv("GITHUB_REPO_WEBHOOK_SECRET"),
 
 		// Github Bot
 		GithubBotPrivateKey: privateKey,
-		AppID:               1864066,
+		AppID:               int64(appID),
 	})
 
 }

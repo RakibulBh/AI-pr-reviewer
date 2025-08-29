@@ -66,7 +66,6 @@ func (c *GithubController) MainReciever(w http.ResponseWriter, r *http.Request) 
 				slog.Error("error reviewing pull request", "error", err)
 				return
 			}
-			slog.Info("pull request review completed successfully")
 		}()
 
 	default:

@@ -52,7 +52,7 @@ func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, pullRequest git
 		oauth2.StaticTokenSource(&oauth2.Token{AccessToken: installationToken})))
 
 	// Loop until there are no more pages of files to review, pages start from 1
-	pageCount := 2
+	pageCount := 1
 	for {
 		files, err := g.repository.ListPullRequestFiles(ctx, client, owner, repo, pullNumber, pageCount)
 		if err != nil {
@@ -96,6 +96,8 @@ func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, pullRequest git
 		pageCount++
 		time.Sleep(time.Second * 15)
 	}
+
+	slog.Info("pull request review completed successfully")
 
 	return nil
 }

@@ -19,6 +19,7 @@ type BootstrapConfig struct {
 	R            *chi.Mux
 	Port         string
 	GeminiApiKey string
+	Env          string
 
 	// Github Repo
 	GithubWebhookSecret string
@@ -43,7 +44,7 @@ func Bootstrap(appConfig *BootstrapConfig) {
 	slog.Info("LLM client has been created and connected")
 
 	// Setup logger
-	SetupLogger()
+	SetupLogger(appConfig.Env)
 
 	// setup repositories
 	githubRepository := repository.NewGithubRepository(appConfig.GithubWebhookSecret, appConfig.GithubBotPrivateKey)
