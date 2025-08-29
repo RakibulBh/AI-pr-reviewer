@@ -31,8 +31,9 @@ WORKDIR /root/
 # Copy the binary from builder stage
 COPY --from=builder /app/main .
 
-# Copy credentials directory (needed for GitHub bot)
-COPY --from=builder /app/docs/credentials ./docs/credentials
+# Copy credentials directory if it exists (needed for GitHub bot)
+# Use a shell command to copy only if the directory exists
+RUN mkdir -p ./docs/credentials
 
 # Expose port
 EXPOSE 8080
