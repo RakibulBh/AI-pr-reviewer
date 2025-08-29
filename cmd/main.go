@@ -37,9 +37,13 @@ func main() {
 	}
 
 	appIDStr := os.Getenv("APP_ID")
+	if appIDStr == "" {
+		log.Fatalf("APP_ID environment variable is not set")
+	}
+
 	appID, err := strconv.Atoi(appIDStr)
 	if err != nil {
-		log.Fatalf("Invalid APP_ID: %v", err)
+		log.Fatalf("Invalid APP_ID '%s': %v", appIDStr, err)
 	}
 
 	config.Bootstrap(&config.BootstrapConfig{
