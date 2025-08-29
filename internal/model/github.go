@@ -4,7 +4,7 @@ type ReviewCommentRequest struct {
 	Body        string `json:"body"`
 	CommitID    string `json:"commit_id"`
 	Path        string `json:"path"`
-	Position    int    `json:"position,omitempty"`
+	Line        int    `json:"line,omitempty"`
 	SubjectType string `json:"subject_type"`
 }
 

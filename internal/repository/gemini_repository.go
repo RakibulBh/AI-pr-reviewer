@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/model"
 	"github.com/RakibulBh/AI-pr-reviewer/internal/utils"
@@ -23,6 +24,10 @@ func NewGeminiRepository(client *genai.Client, ctx context.Context) *GeminiRepos
 }
 
 func (g *GeminiRepository) GetCodeReviews(code string) ([]model.ReviewCommentRequest, error) {
+	// Create a context with a longer timeout for LLM processing
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
 	parts := []*genai.Part{
 		{Text: code},
 	}
@@ -58,17 +63,12 @@ func (g *GeminiRepository) GetCodeReviews(code string) ([]model.ReviewCommentReq
 					Type:        genai.TypeString,
 					Description: "The file path relative to repository root",
 				},
-				"position": {
+				"line": {
 					Type:        genai.TypeInteger,
-					Description: "The position in the diff where you want to add a review comment. Note this value is not the same as the line number in the file. The position value equals the number of lines down from the first @@ hunk header in the file you want to add a comment. The line just below the @@ line is position 1, the next line is position 2, and so on. The position in the diff continues to increase through lines of whitespace and additional hunks until the beginning of a new file.",
-				},
-				"subject_type": {
-					Type:        genai.TypeString,
-					Enum:        []string{"line", "file"},
-					Description: "The level at which the comment is targeted.",
+					Description: "The line of the blob in the pull request diff that the comment applies to. For a multi-line comment, the last line of the range that your comment applies to.",
 				},
 			},
-			Required: []string{"body", "commit_id", "path", "subject_type"},
+			Required: []string{"body", "commit_id", "path", "line"},
 		},
 	}
 
@@ -87,7 +87,7 @@ func (g *GeminiRepository) GetCodeReviews(code string) ([]model.ReviewCommentReq
 	}
 
 	result, err := g.client.Models.GenerateContent(
-		g.ctx,
+		ctx,
 		"gemini-2.0-flash",
 		content,
 		cfg,
@@ -126,8 +126,8 @@ func validateReviewComments(comments []model.ReviewCommentRequest) error {
 		if comment.Path == "" {
 			return fmt.Errorf("comment %d: path cannot be empty", i)
 		}
-		if comment.Position <= 0 {
-			return fmt.Errorf("comment %d: position must be greater than 0", i)
+		if comment.Line <= 0 {
+			return fmt.Errorf("comment %d: line must be greater than 0", i)
 		}
 		if comment.SubjectType != "" && (comment.SubjectType != "file" && comment.SubjectType != "line") {
 			return fmt.Errorf("comment %d: subject type must be file or line", i)

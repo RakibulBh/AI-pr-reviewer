@@ -6,7 +6,9 @@ require (
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-playground/webhooks/v6 v6.4.0
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/joho/godotenv v1.5.1
+	golang.org/x/oauth2 v0.23.0
 	google.golang.org/genai v1.22.0
 )
 
@@ -16,6 +18,8 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-github/v45 v45.2.0 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
