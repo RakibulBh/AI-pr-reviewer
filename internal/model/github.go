@@ -1,13 +1,11 @@
 package model
 
 type ReviewCommentRequest struct {
-	Body      string `json:"body"`
-	CommitID  string `json:"commit_id"`
-	Path      string `json:"path"`
-	StartLine int    `json:"start_line,omitempty"`
-	StartSide string `json:"start_side,omitempty"`
-	Line      int    `json:"line"`
-	Side      string `json:"side"`
+	Body        string `json:"body"`
+	CommitID    string `json:"commit_id"`
+	Path        string `json:"path"`
+	Position    int    `json:"position,omitempty"`
+	SubjectType string `json:"subject_type"`
 }
 
 // PR file

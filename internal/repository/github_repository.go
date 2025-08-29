@@ -4,23 +4,26 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/model"
 )
 
 type GithubRepository struct {
-	Token string
+	WebhookSecret string
+	AccessToken   string
 }
 
-func NewGithubRepository(token string) *GithubRepository {
+func NewGithubRepository(webhookSecret string, accessToken string) *GithubRepository {
 	return &GithubRepository{
-		Token: token,
+		WebhookSecret: webhookSecret,
+		AccessToken:   accessToken,
 	}
 }
 
-func (u *GithubRepository) CreateReviewComments(owner string, repo string, pullNumber int64, comment model.ReviewCommentRequest) error {
+func (u *GithubRepository) CreateReviewComments(owner string, repo string, pullNumber int64, comment *model.ReviewCommentRequest) error {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d/comments", owner, repo, pullNumber)
 
 	// marshal the request body
@@ -28,6 +31,7 @@ func (u *GithubRepository) CreateReviewComments(owner string, repo string, pullN
 	if err != nil {
 		return err
 	}
+	slog.Debug("the payload being sent to the URL", "payload", string(payload), "url", url)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	if err != nil {
@@ -35,10 +39,10 @@ func (u *GithubRepository) CreateReviewComments(owner string, repo string, pullN
 	}
 
 	// set headers
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "Bearer "+u.Token)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Set("Authorization", "Bearer "+u.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
 	// send request
 	client := &http.Client{}
@@ -49,23 +53,23 @@ func (u *GithubRepository) CreateReviewComments(owner string, repo string, pullN
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("failed to create review comment: %s", resp.Status)
+		body, _ := io.ReadAll(resp.Body)
+		slog.Error("failed to create review comment", "status", resp.Status, "response", string(body))
+		return fmt.Errorf("failed to create review comment: %s - %s", resp.Status, string(body))
 	}
 
 	return nil
 }
 
-func (u *GithubRepository) ListPullRequestFiles(owner, repo string, pullNumber int64) ([]model.PRFile, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d/files", owner, repo, pullNumber)
+func (u *GithubRepository) ListPullRequestFiles(owner, repo string, pullNumber int64, pageNumber int32) ([]model.PRFile, error) {
+	slog.Debug("trying to fetch diffs", "owner", owner, "repo", repo, "pullNumber", pullNumber)
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d/files?per_page=10&page=%d", owner, repo, pullNumber, pageNumber)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "Bearer "+u.Token)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -78,7 +82,7 @@ func (u *GithubRepository) ListPullRequestFiles(owner, repo string, pullNumber i
 		return nil, fmt.Errorf("failed to fetch PR files: %s", resp.Status)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/usecase"
@@ -27,6 +28,7 @@ func (c *GithubController) MainReciever(w http.ResponseWriter, r *http.Request) 
 	payload, err := c.hook.Parse(r, github.ReleaseEvent, github.PullRequestEvent)
 	if err != nil {
 		if err == github.ErrEventNotFound {
+			slog.Error("github event not found", "event", payload)
 			// ok event wasn't one of the ones asked to be parsed
 		}
 	}
@@ -42,14 +44,12 @@ func (c *GithubController) MainReciever(w http.ResponseWriter, r *http.Request) 
 
 	case github.PullRequestPayload:
 		pullRequest := payload.(github.PullRequestPayload)
+		slog.Info("pull request event recieved")
 
 		err := c.usecase.PullRequestReviewer(pullRequest)
 		if err != nil {
 			log.Printf("error reviewing pull request: %v", err)
 			return
 		}
-
-		fmt.Print(pullRequest.Sender)
-		fmt.Printf("%+v", pullRequest)
 	}
 }

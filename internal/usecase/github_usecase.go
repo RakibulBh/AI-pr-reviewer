@@ -1,9 +1,12 @@
 package usecase
 
 import (
+	"log/slog"
+	"time"
+
 	"github.com/RakibulBh/AI-pr-reviewer/internal/model"
 	"github.com/RakibulBh/AI-pr-reviewer/internal/repository"
-	"github.com/RakibulBh/AI-pr-reviewer/internal/utils"
+	"github.com/RakibulBh/AI-pr-reviewer/internal/utils/json"
 	"github.com/go-playground/webhooks/v6/github"
 )
 
@@ -24,38 +27,55 @@ func (g *GithubUsecase) PullRequestReviewer(pullRequest github.PullRequestPayloa
 	repo := pullRequest.Repository.Name
 	pullNumber := pullRequest.Number
 
-	// Fetch file changes with code for context
-	files, err := g.repository.ListPullRequestFiles(owner, repo, pullNumber)
-	if err != nil {
-		return err
-	}
-
-	// Get the reviews for the PR
-	filesToJsonString, err := utils.StructToJSON(files)
-	if err != nil {
-		return err
-	}
-	reviews, err := g.gemini.GetCodeReviews(filesToJsonString)
-	if err != nil {
-		return err
-	}
-
-	// Create each revoew
-	for _, review := range reviews {
-		comment := model.ReviewCommentRequest{
-			Body:      review.Body,
-			CommitID:  review.CommitID,
-			Path:      review.Path,
-			StartLine: review.StartLine,
-			StartSide: review.StartSide,
-			Line:      review.Line,
-			Side:      review.Side,
+	// Loop until there are no more pages of files to review
+	var pageCount int32 = 0
+	for {
+		files, err := g.repository.ListPullRequestFiles(owner, repo, pullNumber, pageCount)
+		if err != nil {
+			slog.Error("error fetching diffs", "error", err, "owner", owner, "repo", repo, "pullNumber", pullNumber)
+			return err
 		}
 
-		err = g.repository.CreateReviewComments(owner, repo, pullNumber, comment)
+		// If there are no files break the loop
+		if len(files) <= 0 {
+			break
+		}
+
+		// Get the reviews for the PR
+		filesToJsonString, err := json.StructToJSON(files)
 		if err != nil {
 			return err
 		}
+		reviews, err := g.gemini.GetCodeReviews(filesToJsonString)
+		if err != nil {
+			slog.Error("error getting code reviews from LLM", "error", err)
+			return err
+		}
+		slog.Info("reviews have been created by the LLM", "number_of_reviews", len(reviews))
+
+		// Create each review
+		for _, review := range reviews {
+			commitID := pullRequest.PullRequest.Head.Sha
+
+			comment := &model.ReviewCommentRequest{
+				Body:        review.Body,
+				CommitID:    commitID,
+				Path:        review.Path,
+				Position:    review.Position,
+				SubjectType: review.SubjectType,
+			}
+
+			time.Sleep(time.Second * 5)
+
+			err = g.repository.CreateReviewComments(owner, repo, pullNumber, comment)
+			if err != nil {
+				slog.Error("error creating review comment", "error", err, "comment", comment)
+				return err
+			}
+		}
+
+		pageCount++
+		time.Sleep(time.Second * 15)
 	}
 
 	return nil

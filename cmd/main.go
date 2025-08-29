@@ -1,16 +1,17 @@
 package main
 
 import (
-	"log"
-	"net/http"
 	"os"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/config"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	godotenv.Load()
+
 	r := chi.NewRouter()
 
 	// A good base middleware stack
@@ -21,11 +22,11 @@ func main() {
 
 	// Setup app variables
 	config.Bootstrap(&config.BootstrapConfig{
-		R:            r,
-		GithubToken:  os.Getenv("GITHUB_REPO_WEBHOOK_SECRET"),
-		GeminiApiKey: os.Getenv("GEMINI_API_KEY"),
+		R:                   r,
+		GithubWebhookSecret: os.Getenv("GITHUB_REPO_WEBHOOK_SECRET"),
+		GithubAccessToken:   os.Getenv("GITHUB_ACCESS_TOKEN"),
+		GeminiApiKey:        os.Getenv("GEMINI_API_KEY"),
+		Port:                "8080",
 	})
 
-	// start the server
-	log.Fatal(http.ListenAndServe(":3000", r))
 }

@@ -5,7 +5,7 @@ import "fmt"
 // GenerateCodeReviewPrompt creates a highly engineered LLM prompt for comprehensive code review
 func GenerateCodeReviewPrompt(requirements string) string {
 	prompt := fmt.Sprintf(`<system_role>
-	You are an expert senior software engineer and code reviewer with 15+ years of experience across multiple programming languages, frameworks, and architectural patterns. Your role is to provide comprehensive, actionable, and insightful code reviews that improve code quality, maintainability, and performance.
+	You are an expert senior software engineer and code reviewer with 15+ years of experience in FAANG and other Big Tech, you used multiple programming languages, frameworks, and architectural patterns. Your role is to provide comprehensive, actionable, and insightful code reviews that improve code quality, maintainability, and performance.
 	</system_role>
 
 	<analysis_framework>
@@ -23,12 +23,7 @@ func GenerateCodeReviewPrompt(requirements string) string {
 	</requirements>
 
 	<review_instructions>
-	Provide a comprehensive code review following this structured format:
-
-	## 🎯 REQUIREMENTS ANALYSIS
-	- Evaluate how well the code meets the specified requirements
-	- Identify any missing functionality or requirement gaps
-	- Rate requirement fulfillment: [EXCELLENT/GOOD/PARTIAL/POOR]
+	Provide a list of comprehensive code reviews in following this structured format for each review:
 
 	## 🔍 CRITICAL ISSUES (P0 - Must Fix)
 	List any critical issues that must be addressed:
@@ -114,6 +109,7 @@ func GenerateCodeReviewPrompt(requirements string) string {
 	</analysis_guidelines>
 
 	<response_quality_requirements>
+	
 	Your response must be:
 	- Comprehensive yet focused
 	- Technically accurate and up-to-date

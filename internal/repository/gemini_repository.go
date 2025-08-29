@@ -52,30 +52,23 @@ func (g *GeminiRepository) GetCodeReviews(code string) ([]model.ReviewCommentReq
 				},
 				"commit_id": {
 					Type:        genai.TypeString,
-					Description: "The commit ID (will be set by system)",
+					Description: "The commit ID, this can be found in the SHA of the diff",
 				},
 				"path": {
 					Type:        genai.TypeString,
 					Description: "The file path relative to repository root",
 				},
-				"start_line": {
+				"position": {
 					Type:        genai.TypeInteger,
-					Description: "Optional starting line number for multi-line comments",
+					Description: "The position in the diff where you want to add a review comment. Note this value is not the same as the line number in the file. The position value equals the number of lines down from the first @@ hunk header in the file you want to add a comment. The line just below the @@ line is position 1, the next line is position 2, and so on. The position in the diff continues to increase through lines of whitespace and additional hunks until the beginning of a new file.",
 				},
-				"start_side": {
+				"subject_type": {
 					Type:        genai.TypeString,
-					Description: "Optional starting side for multi-line comments",
-				},
-				"line": {
-					Type:        genai.TypeInteger,
-					Description: "The line number where the issue occurs",
-				},
-				"side": {
-					Type:        genai.TypeString,
-					Description: "The side of the diff (RIGHT for new code)",
+					Enum:        []string{"line", "file"},
+					Description: "The level at which the comment is targeted.",
 				},
 			},
-			Required: []string{"body", "path", "line", "side"},
+			Required: []string{"body", "commit_id", "path", "subject_type"},
 		},
 	}
 
@@ -133,19 +126,11 @@ func validateReviewComments(comments []model.ReviewCommentRequest) error {
 		if comment.Path == "" {
 			return fmt.Errorf("comment %d: path cannot be empty", i)
 		}
-		if comment.Line <= 0 {
-			return fmt.Errorf("comment %d: line must be greater than 0", i)
+		if comment.Position <= 0 {
+			return fmt.Errorf("comment %d: position must be greater than 0", i)
 		}
-		if comment.Side == "" {
-			return fmt.Errorf("comment %d: side cannot be empty", i)
-		}
-		// Validate side values
-		if comment.Side != "LEFT" && comment.Side != "RIGHT" {
-			return fmt.Errorf("comment %d: side must be either 'LEFT' or 'RIGHT'", i)
-		}
-		// Validate start_line if provided
-		if comment.StartLine > 0 && comment.StartLine > comment.Line {
-			return fmt.Errorf("comment %d: start_line cannot be greater than line", i)
+		if comment.SubjectType != "" && (comment.SubjectType != "file" && comment.SubjectType != "line") {
+			return fmt.Errorf("comment %d: subject type must be file or line", i)
 		}
 	}
 	return nil
