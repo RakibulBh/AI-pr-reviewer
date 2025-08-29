@@ -150,6 +150,12 @@ func (g *GithubUsecase) formatFilesForLLM(files []*github.CommitFile) string {
 			continue
 		}
 
+		// Skip config files, env files, and other non-reviewable files
+		if g.isConfigFile(file) {
+			slog.Info("Skipping config/env file", "filename", file.GetFilename())
+			continue
+		}
+
 		// Skip very large diffs that would overwhelm the LLM
 		patchLines := strings.Split(file.GetPatch(), "\n")
 		if len(patchLines) > maxDiffLines {
@@ -233,6 +239,73 @@ func (g *GithubUsecase) isBinaryFile(file *github.CommitFile) bool {
 		strings.Contains(patch, "GIT binary patch") ||
 		strings.Contains(patch, "cannot display: file marked as a binary type") {
 		return true
+	}
+
+	return false
+}
+
+func (g *GithubUsecase) isConfigFile(file *github.CommitFile) bool {
+	filename := strings.ToLower(file.GetFilename())
+
+	// Config file patterns and extensions
+	configPatterns := []string{
+		// Environment files
+		".env", ".env.local", ".env.development", ".env.production", ".env.test",
+		".env.example", ".env.sample", ".env.template",
+
+		// Package manager files
+		"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock",
+		"pipfile.lock", "poetry.lock", "go.sum", "cargo.lock",
+
+		// Config files
+		".gitignore", ".gitattributes", ".dockerignore", ".eslintignore",
+		".prettierignore", ".editorconfig", ".nvmrc", ".node-version",
+
+		// CI/CD files
+		".github/", ".gitlab-ci.yml", ".travis.yml", ".circleci/",
+		"jenkinsfile", "dockerfile", "docker-compose.yml", "docker-compose.yaml",
+
+		// IDE/Editor files
+		".vscode/", ".idea/", "*.iml",
+
+		// Build/Deploy configs
+		"webpack.config.js", "rollup.config.js", "vite.config.js",
+		"tsconfig.json", "jsconfig.json", "babel.config.js", ".babelrc",
+		"tailwind.config.js", "postcss.config.js",
+		"makefile", "cmake", "build.gradle", "pom.xml",
+
+		// Linting/Formatting configs
+		".eslintrc", ".prettierrc", ".stylelintrc", "tslint.json",
+		".flake8", ".pylintrc", "pyproject.toml", "setup.cfg",
+
+		// Documentation that doesn't need review
+		"readme.md", "changelog.md", "license", "authors", "contributors",
+		"code_of_conduct.md", "contributing.md", "security.md",
+	}
+
+	// Check exact filename matches
+	for _, pattern := range configPatterns {
+		if strings.Contains(filename, pattern) {
+			return true
+		}
+	}
+
+	// Check file extensions that are typically config
+	configExtensions := []string{
+		".toml", ".ini", ".cfg", ".conf", ".config", ".properties",
+		".yaml", ".yml", ".json", ".xml",
+	}
+
+	for _, ext := range configExtensions {
+		if strings.HasSuffix(filename, ext) {
+			// Allow certain JSON/YAML files that might contain business logic
+			if !strings.Contains(filename, "schema") &&
+				!strings.Contains(filename, "spec") &&
+				!strings.Contains(filename, "test") &&
+				!strings.Contains(filename, "mock") {
+				return true
+			}
+		}
 	}
 
 	return false
