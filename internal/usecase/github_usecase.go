@@ -112,6 +112,7 @@ func (g *GithubUsecase) reviewPullRequest(ctx context.Context, event *github.Pul
 
 		// Create each review
 		for _, review := range reviews {
+
 			comment := &github.PullRequestComment{
 				Body:     &review.Body,
 				CommitID: &commitID,
@@ -136,10 +137,27 @@ func (g *GithubUsecase) reviewPullRequest(ctx context.Context, event *github.Pul
 
 func (g *GithubUsecase) formatFilesForLLM(files []*github.CommitFile) string {
 	var formattedFiles []string
+	const maxDiffLines = 500 // Maximum lines in a diff to send to LLM
 
 	for _, file := range files {
 		if file.GetPatch() == "" {
 			continue // Skip binary or unchanged files
+		}
+
+		// Skip binary files
+		if g.isBinaryFile(file) {
+			slog.Info("Skipping binary file", "filename", file.GetFilename())
+			continue
+		}
+
+		// Skip very large diffs that would overwhelm the LLM
+		patchLines := strings.Split(file.GetPatch(), "\n")
+		if len(patchLines) > maxDiffLines {
+			slog.Info("Skipping file with large diff",
+				"filename", file.GetFilename(),
+				"lines", len(patchLines),
+				"maxLines", maxDiffLines)
+			continue
 		}
 
 		formatted := fmt.Sprintf(`
@@ -184,6 +202,40 @@ func (g *GithubUsecase) formatPatchWithLineNumbers(patch string) string {
 	}
 
 	return strings.Join(formatted, "\n")
+}
+
+func (g *GithubUsecase) isBinaryFile(file *github.CommitFile) bool {
+	filename := file.GetFilename()
+
+	// Common binary file extensions
+	binaryExtensions := []string{
+		".exe", ".dll", ".so", ".dylib", ".a", ".lib",
+		".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".svg",
+		".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac",
+		".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+		".zip", ".tar", ".gz", ".rar", ".7z",
+		".bin", ".dat", ".db", ".sqlite", ".sqlite3",
+		".ttf", ".otf", ".woff", ".woff2",
+		".jar", ".war", ".ear", ".class",
+		".pyc", ".pyo", ".o", ".obj",
+	}
+
+	// Check file extension
+	for _, ext := range binaryExtensions {
+		if strings.HasSuffix(strings.ToLower(filename), ext) {
+			return true
+		}
+	}
+
+	// Check if patch contains binary file indicator
+	patch := file.GetPatch()
+	if strings.Contains(patch, "Binary files") ||
+		strings.Contains(patch, "GIT binary patch") ||
+		strings.Contains(patch, "cannot display: file marked as a binary type") {
+		return true
+	}
+
+	return false
 }
 
 func (g *GithubUsecase) generateJWT() (string, error) {
