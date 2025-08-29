@@ -23,6 +23,7 @@ type GithubUsecase struct {
 }
 
 const OPENED_ACTION = "opened"
+const REOPENED_ACTION = "reopened"
 
 func NewGithubUsecase(repository *repository.GithubRepository, gemini *repository.GeminiRepository, appID int64, privateKey *rsa.PrivateKey) *GithubUsecase {
 	return &GithubUsecase{
@@ -43,8 +44,14 @@ func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, event *github.P
 			return err
 		}
 		slog.Info("pull request review completed successfully")
+	case REOPENED_ACTION:
+		err := g.reviewPullRequest(ctx, event)
+		if err != nil {
+			return err
+		}
+		slog.Info("pull request review completed successfully")
 	default:
-		return fmt.Errorf("action not supported: %v", action)
+		slog.Info("recieved an action which is not supported yet", "action", action)
 	}
 
 	return nil
@@ -53,11 +60,19 @@ func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, event *github.P
 // Private methods
 
 func (g *GithubUsecase) reviewPullRequest(ctx context.Context, event *github.PullRequestEvent) error {
-	owner := event.GetRepo().GetOwner().GetName()
+	owner := event.GetRepo().GetOwner().GetLogin()
 	repo := event.GetRepo().GetName()
 	pullNumber := event.GetPullRequest().GetNumber()
 	installationID := event.Installation.GetID()
-	commitID := event.GetPullRequest().GetMergeCommitSHA() // Head SHA
+	commitID := event.GetPullRequest().GetHead().GetSHA()
+
+	// Debug logging
+	slog.Info("Processing PR review",
+		"owner", owner,
+		"repo", repo,
+		"pullNumber", pullNumber,
+		"installationID", installationID,
+		"commitID", commitID)
 
 	// Create new bot client for this request
 	jwt, err := g.generateJWT()

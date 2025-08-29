@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"os"
 	"strconv"
@@ -52,12 +51,12 @@ func main() {
 
 	appIDStr := os.Getenv("APP_ID")
 	if appIDStr == "" {
-		log.Fatalf("APP_ID environment variable is not set")
+		slog.Error("APP_ID environment variable is not set")
 	}
 
 	appID, err := strconv.Atoi(appIDStr)
 	if err != nil {
-		log.Fatalf("Invalid APP_ID '%s': %v", appIDStr, err)
+		slog.Error("Invalid APP_ID", "APP_ID", appID)
 	}
 
 	config.Bootstrap(&config.BootstrapConfig{
