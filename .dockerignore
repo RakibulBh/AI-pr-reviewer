@@ -4,7 +4,8 @@
 
 # Documentation
 README.md
-*.md
+# Keep docs/repository_rules/*.md files for the application
+!docs/repository_rules/*.md
 
 # Environment files (will be passed as env vars)
 .env*
