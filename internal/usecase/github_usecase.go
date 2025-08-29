@@ -10,9 +10,8 @@ import (
 	"time"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/repository"
-	githubWebhook "github.com/go-playground/webhooks/v6/github"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/go-github/v45/github"
+	"github.com/google/go-github/v74/github"
 	"golang.org/x/oauth2"
 )
 
@@ -23,6 +22,8 @@ type GithubUsecase struct {
 	privateKey *rsa.PrivateKey
 }
 
+const OPENED_ACTION = "opened"
+
 func NewGithubUsecase(repository *repository.GithubRepository, gemini *repository.GeminiRepository, appID int64, privateKey *rsa.PrivateKey) *GithubUsecase {
 	return &GithubUsecase{
 		repository: repository,
@@ -32,11 +33,31 @@ func NewGithubUsecase(repository *repository.GithubRepository, gemini *repositor
 	}
 }
 
-func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, pullRequest githubWebhook.PullRequestPayload) error {
-	owner := pullRequest.Repository.Owner.Login
-	repo := pullRequest.Repository.Name
-	pullNumber := int(pullRequest.Number)
-	installationID := pullRequest.Installation.ID
+func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, event *github.PullRequestEvent) error {
+	action := event.GetAction()
+
+	switch action {
+	case OPENED_ACTION:
+		err := g.reviewPullRequest(ctx, event)
+		if err != nil {
+			return err
+		}
+		slog.Info("pull request review completed successfully")
+	default:
+		return fmt.Errorf("action not supported: %v", action)
+	}
+
+	return nil
+}
+
+// Private methods
+
+func (g *GithubUsecase) reviewPullRequest(ctx context.Context, event *github.PullRequestEvent) error {
+	owner := event.GetRepo().GetOwner().GetName()
+	repo := event.GetRepo().GetName()
+	pullNumber := event.GetPullRequest().GetNumber()
+	installationID := event.Installation.GetID()
+	commitID := event.GetPullRequest().GetMergeCommitSHA() // Head SHA
 
 	// Create new bot client for this request
 	jwt, err := g.generateJWT()
@@ -76,8 +97,6 @@ func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, pullRequest git
 
 		// Create each review
 		for _, review := range reviews {
-			commitID := pullRequest.PullRequest.Head.Sha
-
 			comment := &github.PullRequestComment{
 				Body:     &review.Body,
 				CommitID: &commitID,
@@ -97,12 +116,8 @@ func (g *GithubUsecase) PullRequestReviewer(ctx context.Context, pullRequest git
 		time.Sleep(time.Second * 15)
 	}
 
-	slog.Info("pull request review completed successfully")
-
 	return nil
 }
-
-// Private methods
 
 func (g *GithubUsecase) formatFilesForLLM(files []*github.CommitFile) string {
 	var formattedFiles []string

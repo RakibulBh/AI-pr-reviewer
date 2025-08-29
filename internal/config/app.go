@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"crypto/rsa"
-	"log"
 	"log/slog"
 	"net/http"
 	"time"
@@ -31,10 +30,6 @@ type BootstrapConfig struct {
 
 func Bootstrap(appConfig *BootstrapConfig) {
 	// configs
-	hook, err := NewGithubHook(appConfig.GithubWebhookSecret)
-	if err != nil {
-		log.Fatalf("error creating new github webhook: %v\n", err)
-	}
 	slog.Info("Github Hook Listener has been succsessfully connected")
 	client, err := NewGeminiClient(context.Background(), appConfig.GeminiApiKey)
 	if err != nil {
@@ -54,7 +49,7 @@ func Bootstrap(appConfig *BootstrapConfig) {
 	githubUsecase := usecase.NewGithubUsecase(githubRepository, geminiRepository, appConfig.AppID, appConfig.GithubBotPrivateKey)
 
 	// setup controller
-	githubController := httpPackage.NewGithubController(githubUsecase, hook)
+	githubController := httpPackage.NewGithubController(githubUsecase, appConfig.GithubWebhookSecret)
 	healthController := httpPackage.NewHealthController()
 
 	// setup middleware

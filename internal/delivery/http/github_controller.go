@@ -2,54 +2,45 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/RakibulBh/AI-pr-reviewer/internal/usecase"
-	"github.com/go-playground/webhooks/v6/github"
+	"github.com/google/go-github/v74/github"
 	"google.golang.org/genai"
 )
 
 type GithubController struct {
-	usecase *usecase.GithubUsecase
-	hook    *github.Webhook
-	client  *genai.Client
+	usecase          *usecase.GithubUsecase
+	webhookSecretKey string
+	client           *genai.Client
 }
 
-func NewGithubController(usecase *usecase.GithubUsecase, hook *github.Webhook) *GithubController {
+func NewGithubController(usecase *usecase.GithubUsecase, webhookSecretKey string) *GithubController {
 	return &GithubController{
-		usecase: usecase,
-		hook:    hook,
+		usecase:          usecase,
+		webhookSecretKey: webhookSecretKey,
 	}
 }
 
 func (c *GithubController) MainReciever(w http.ResponseWriter, r *http.Request) {
-	payload, err := c.hook.Parse(r, github.ReleaseEvent, github.PullRequestEvent)
+	payload, err := github.ValidatePayload(r, []byte(c.webhookSecretKey))
 	if err != nil {
-		if err == github.ErrEventNotFound {
-			slog.Error("github event not found", "event", payload)
-			// ok event wasn't one of the ones asked to be parsed
-		}
-		http.Error(w, "Failed to parse webhook", http.StatusBadRequest)
+		slog.Error("error validating github webhook request payload", "error", err)
 		return
 	}
 
-	switch payload.(type) {
-	case github.ReleasePayload:
-		release := payload.(github.ReleasePayload)
-		// Do whatever you want from here...
-		fmt.Printf("%+v", release)
-		w.WriteHeader(http.StatusOK)
+	// Parse the event
+	event, err := github.ParseWebHook(github.WebHookType(r), payload)
+	if err != nil {
+		slog.Error("error parsing the webhook", "error", err)
+		return
+	}
 
-	case github.PingPayload:
-		ping := payload.(github.PingPayload)
-		fmt.Printf("ping request babe: %v", ping.Sender)
-		w.WriteHeader(http.StatusOK)
-
-	case github.PullRequestPayload:
-		pullRequest := payload.(github.PullRequestPayload)
+	switch event := event.(type) {
+	case *github.PullRequestEvent:
+		pullRequest := event
 		slog.Info("pull request event received")
 
 		// Return 200 immediately to GitHub to prevent timeout
