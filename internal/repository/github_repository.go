@@ -5,7 +5,7 @@ import (
 	"crypto/rsa"
 	"log/slog"
 
-	"github.com/google/go-github/v45/github"
+	"github.com/google/go-github/v74/github"
 )
 
 type GithubRepository struct {
