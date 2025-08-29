@@ -24,12 +24,26 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	env := os.Getenv("ENV")
+
 	// Extract the stored private key
-	keyData, err := os.ReadFile("docs/credentials/bibi-the-monkey-code-reviewer.2025-08-29.private-key.pem")
-	if err != nil {
-		slog.Error("failed to read private key", "err", err)
-		os.Exit(1)
+	var keyData []byte
+	var err error
+	if env == "production" {
+		keyDataStr := os.Getenv("GITHUB_BOT_PRIVATE_KEY")
+		if keyDataStr == "" {
+			slog.Error("GITHUB_BOT_PRIVATE_KEY environment variable is not set")
+			os.Exit(1)
+		}
+		keyData = []byte(keyDataStr)
+	} else {
+		keyData, err = os.ReadFile("docs/credentials/bibi-the-monkey-code-reviewer.2025-08-29.private-key.pem")
+		if err != nil {
+			slog.Error("failed to read private key", "err", err)
+			os.Exit(1)
+		}
 	}
+
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(keyData)
 	if err != nil {
 		slog.Error("failed to parse private key", "err", err)
@@ -50,7 +64,7 @@ func main() {
 		R:            r,
 		GeminiApiKey: os.Getenv("GEMINI_API_KEY"),
 		Port:         os.Getenv("PORT"),
-		Env:          os.Getenv("ENV"),
+		Env:          env,
 
 		// Github Repostored private key
 		GithubWebhookSecret: os.Getenv("GITHUB_REPO_WEBHOOK_SECRET"),
