@@ -1,7 +1,12 @@
 package config
 
 import (
+	"context"
+	"crypto/rsa"
 	"log"
+	"log/slog"
+	"net/http"
+	"time"
 
 	httpPackage "github.com/RakibulBh/AI-pr-reviewer/internal/delivery/http"
 	"github.com/RakibulBh/AI-pr-reviewer/internal/delivery/http/route"
@@ -11,32 +16,70 @@ import (
 )
 
 type BootstrapConfig struct {
-	R *chi.Mux
+	R            *chi.Mux
+	Port         string
+	GeminiApiKey string
+	Env          string
+
+	// Github Repo
+	GithubWebhookSecret string
+
+	// Github Bot
+	GithubBotPrivateKey *rsa.PrivateKey
+	AppID               int64
 }
 
 func Bootstrap(appConfig *BootstrapConfig) {
-	// setup repositories
-	githubRepository := repository.NewGithubRepository()
-
-	// setup producer
-
 	// configs
-	hook, err := NewGithubHook()
+	hook, err := NewGithubHook(appConfig.GithubWebhookSecret)
 	if err != nil {
 		log.Fatalf("error creating new github webhook: %v\n", err)
 	}
+	slog.Info("Github Hook Listener has been succsessfully connected")
+	client, err := NewGeminiClient(context.Background(), appConfig.GeminiApiKey)
+	if err != nil {
+		slog.Error("error creating gemini client", "err", err)
+
+	}
+	slog.Info("LLM client has been created and connected")
+
+	// Setup logger
+	SetupLogger(appConfig.Env)
+
+	// setup repositories
+	githubRepository := repository.NewGithubRepository(appConfig.GithubWebhookSecret, appConfig.GithubBotPrivateKey)
+	geminiRepository := repository.NewGeminiRepository(client, context.Background())
 
 	// setup use cases
-	githubUsecase := usecase.NewGithubUsecase(githubRepository)
+	githubUsecase := usecase.NewGithubUsecase(githubRepository, geminiRepository, appConfig.AppID, appConfig.GithubBotPrivateKey)
 
 	// setup controller
 	githubController := httpPackage.NewGithubController(githubUsecase, hook)
+	healthController := httpPackage.NewHealthController()
 
 	// setup middleware
-
 	routeConfig := route.RouteConfig{
 		R:                appConfig.R,
 		GithubController: githubController,
+		HealthController: healthController,
 	}
+
+	// Setup routes and start server
 	routeConfig.Setup()
+
+	// Configure server with appropriate timeouts
+	server := &http.Server{
+		Addr:         ":" + appConfig.Port,
+		Handler:      appConfig.R,
+		ReadTimeout:  30 * time.Second,  // Time to read request
+		WriteTimeout: 30 * time.Second,  // Time to write response
+		IdleTimeout:  120 * time.Second, // Time to keep connections alive
+	}
+
+	err = server.ListenAndServe()
+	if err != nil {
+		slog.Warn("major error starting server", "error", err)
+		return
+	}
+	slog.Info("app is now running", "port", appConfig.Port)
 }

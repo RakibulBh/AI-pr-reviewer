@@ -8,10 +8,16 @@ import (
 type RouteConfig struct {
 	R                *chi.Mux
 	GithubController *http.GithubController
+	HealthController *http.HealthController
 }
 
 func (c *RouteConfig) Setup() {
 	c.SetupWebhookRoute()
+	c.SetupMetricRoutes()
+}
+
+func (c *RouteConfig) SetupMetricRoutes() {
+	c.R.Get("/health", c.HealthController.Health)
 }
 
 func (c *RouteConfig) SetupWebhookRoute() {
